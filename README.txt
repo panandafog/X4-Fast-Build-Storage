@@ -1,11 +1,11 @@
-Fast Build Storage MVP v0.1
+Fast Build Storage v0.2
 ===========================
 
 Purpose
 -------
 Remote-unload PLAYER-OWNED ships that are currently executing a TradePerform
-SELL delivery to a station build storage. This is a proof-of-concept intended
-to remove L/XL docking queues at construction storage.
+delivery to a PLAYER-OWNED station build storage. This is a proof-of-concept
+intended to remove L/XL docking queues at construction storage.
 
 Install
 -------
@@ -23,24 +23,28 @@ Current behaviour
 -----------------
 * Poll interval: 5 seconds.
 * Trigger radius: 5 km from build storage.
+* The radius trigger is deliberate: v0.2 does NOT check whether docks are busy
+  or whether a queue exists.
 * Only player-owned ships.
+* Only player-owned build storages: NPC trades are ignored completely.
 * Only the CURRENT order, and only if its id is TradePerform.
-* Only deliveries where the trade deal buyer/owner is class.buildstorage.
+* Only deliveries where the trade deal buyer/owner is a build storage.
 * Transfers only the ware from that trade deal.
-* Amount is capped by:
-    - cargo actually on the ship,
-    - trade-deal amount,
-    - amount currently needed by the build processor.
+* Transfers only a complete deal: cargo on the ship and current construction
+  need must each be at least the whole trade-deal amount. Partial deals are
+  logged and left to vanilla.
 * Cancels that TradePerform order after the remote transfer.
 * Does not touch the ship currently occupied by the player.
 
 Not implemented yet
 -------------------
-* NPC sellers and payment handling.
+* NPC trading and payment handling.
 * Config UI / configurable range.
-* Queue-length detection.
+* Queue-length / free-dock detection (intentionally not planned for this build).
 * Compatibility handling for alternative trade-order implementations.
-* Explicit trade-completed event synthesis (we cancel the order after transfer).
+* Explicit trade-completed event synthesis. The mod still cancels the order;
+  this is limited to player-to-player transfers until vanilla reservation cleanup
+  can be verified from the game scripts.
 
 How to test
 -----------
@@ -59,11 +63,22 @@ Debug
 -----
 Launch X4 with:
 
-  -debug scripts -logfile debuglog.txt
+  -debug all -logfile fbs-debug.txt -scriptlogfiles
 
-Search the resulting debuglog.txt for:
+Search the resulting fbs-debug.txt for:
 
+  FastBuildStorageMVP
   [FBS]
+  Property lookup failed
+  [=ERROR=]
+
+With -scriptlogfiles, the mod also creates a concise trace at:
+
+  <X4 user profile>/logs/FastBuildStorageMVP/fbs.txt
+
+The trace reports scan heartbeat, matching candidates, a pending transfer,
+completion, and skipped incomplete deals. It is intentionally verbose for
+testing; disable the debug_to_file nodes once the MVP is validated.
 
 If it does not work, send the lines around any [FBS] message and any script/XML
 errors mentioning FastBuildStorageMVP.

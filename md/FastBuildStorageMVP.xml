@@ -7,13 +7,13 @@
       MVP behaviour:
       - every 5 seconds scan player-owned ships;
       - only inspect the currently executing TradePerform order;
-      - only handle SELL deliveries whose target/buyer is a build storage;
+      - only handle deliveries to a PLAYER-owned build storage;
       - when the ship is within 5 km, move only the ware in that trade deal;
-      - never move more than the build processor currently needs;
+      - move only complete trade deals; never make a partial remote delivery;
       - cancel the completed TradePerform order so the ship does not keep waiting for a dock.
 
-      Intentionally NOT handled in v0.1:
-      - NPC sellers / payments;
+      Intentionally NOT handled in v0.2:
+      - NPC trading or payments;
       - queued (non-current) orders;
       - UI/settings;
       - any delivery where the trade partner is not represented as class.buildstorage.
@@ -26,6 +26,13 @@
                                  name="$Ships"
                                  multiple="true"/>
 
+        <!-- Test-only heartbeat. Requires -scriptlogfiles; remove or disable after validation. -->
+        <debug_to_file directory="'FastBuildStorageMVP'"
+                       name="'fbs'"
+                       text="'[FBS] scan: player ships=%1'.[$Ships.count]"
+                       output="true"
+                       append="true"/>
+
         <do_all exact="$Ships.count" counter="$i">
           <set_value name="$Ship" exact="$Ships.{$i}"/>
 
@@ -35,37 +42,75 @@
             <do_if value="$Order.exists and ($Order.id == 'TradePerform') and @$Order.$tradedeal.exists">
               <set_value name="$Deal" exact="$Order.$tradedeal"/>
 
-              <!-- A missing seller means the controlled ship is the seller in TradePerform. -->
-              <do_if value="not @$Deal.seller.exists">
-                <set_value name="$Target" exact="null"/>
+              <!--
+                Do not infer the ship's role from $Deal.seller. In vanilla trade
+                data, seller can describe the source station rather than this ship.
+                A build storage as the buyer/owner is the actual requirement here.
+              -->
+              <set_value name="$Target" exact="null"/>
 
-                <do_if value="@$Deal.buyer.isclass.buildstorage">
-                  <set_value name="$Target" exact="$Deal.buyer"/>
-                </do_if>
-                <do_elseif value="@$Deal.owner.isclass.buildstorage">
-                  <set_value name="$Target" exact="$Deal.owner"/>
-                </do_elseif>
+              <do_if value="@$Deal.buyer.isclass.buildstorage">
+                <set_value name="$Target" exact="$Deal.buyer"/>
+              </do_if>
+              <do_elseif value="@$Deal.owner.isclass.buildstorage">
+                <set_value name="$Target" exact="$Deal.owner"/>
+              </do_elseif>
 
-                <do_if value="$Target and $Target.exists and ($Ship.distanceto.{$Target} lt 5km)">
-                  <set_value name="$BuildProcessor" exact="$Target.buildprocessor"/>
+              <!-- Never complete NPC trades: this MVP does not reproduce payment. -->
+              <do_if value="$Target and $Target.exists and $Target.isplayerowned">
+                <debug_to_file directory="'FastBuildStorageMVP'"
+                               name="'fbs'"
+                               text="'[FBS] candidate: ship=%1, target=%2, distance=%3'.[$Ship.knownname, $Target.knownname, $Ship.distanceto.{$Target}]"
+                               output="true"
+                               append="true"/>
+
+                <do_if value="$Ship.distanceto.{$Target} lt 5km">
+                  <!-- A build storage owns its processor through its build module. -->
+                  <set_value name="$BuildProcessor" exact="$Target.buildmodule.buildprocessor"/>
                   <set_value name="$Ware" exact="$Deal.ware"/>
 
                   <do_if value="$BuildProcessor and $Ware and $Ship.cargo.{$Ware}.exists and $BuildProcessor.neededsequenceresources.list.indexof.{$Ware}">
                     <set_value name="$OnShip" exact="$Ship.cargo.{$Ware}.count"/>
                     <set_value name="$Needed" exact="$BuildProcessor.neededsequenceresources.{$Ware}.count"/>
                     <set_value name="$DealAmount" exact="$Deal.amount"/>
-                    <set_value name="$Amount" exact="[$OnShip, $Needed, $DealAmount].min"/>
 
-                    <do_if value="$Amount gt 0">
-                      <remove_cargo object="$Ship" ware="$Ware" exact="$Amount"/>
-                      <add_cargo object="$Target" ware="$Ware" exact="$Amount"/>
+                    <!--
+                      An incomplete deal cannot be safely completed by cancelling
+                      TradePerform. Leave it to vanilla instead of stranding a
+                      remainder of the contracted cargo on the ship.
+                    -->
+                    <do_if value="$DealAmount gt 0 and $OnShip ge $DealAmount and $Needed ge $DealAmount">
+                      <debug_to_file directory="'FastBuildStorageMVP'"
+                                     name="'fbs'"
+                                     text="'[FBS] commit: ship=%1, target=%2, ware=%3, amount=%4'.[$Ship.knownname, $Target.knownname, $Ware.name, $DealAmount]"
+                                     output="true"
+                                     append="true"/>
 
-                      <debug_text text="'[FBS] Remote unload: %1 -> %2, %3 x %4'.[$Ship.knownname, $Target.knownname, $Amount, $Ware.name]"
-                                  chance="100"/>
+                      <remove_cargo object="$Ship" ware="$Ware" exact="$DealAmount"/>
+                      <add_cargo object="$Target" ware="$Ware" exact="$DealAmount"/>
 
-                      <!-- Release the vanilla trade reservation/order after our transfer. -->
+                      <!--
+                        This is still an order cancellation, not a vanilla
+                        trade-completed event. It is restricted to player-to-player
+                        transfers until the vanilla TradePerform cleanup is mapped.
+                      -->
                       <cancel_order order="$Order"/>
+
+                      <debug_text text="'[FBS] Remote unload: %1 -> %2, %3 x %4'.[$Ship.knownname, $Target.knownname, $DealAmount, $Ware.name]"
+                                  chance="100"/>
+                      <debug_to_file directory="'FastBuildStorageMVP'"
+                                     name="'fbs'"
+                                     text="'[FBS] completed: ship=%1, ware=%2, amount=%3'.[$Ship.knownname, $Ware.name, $DealAmount]"
+                                     output="true"
+                                     append="true"/>
                     </do_if>
+                    <do_else>
+                      <debug_to_file directory="'FastBuildStorageMVP'"
+                                     name="'fbs'"
+                                     text="'[FBS] skipped incomplete deal: ship=%1, ware=%2, onship=%3, needed=%4, deal=%5'.[$Ship.knownname, $Ware.name, $OnShip, $Needed, $DealAmount]"
+                                     output="true"
+                                     append="true"/>
+                    </do_else>
                   </do_if>
                 </do_if>
               </do_if>
