@@ -6,11 +6,11 @@
     <!--
       MVP behaviour:
       - every 5 seconds scan player-owned ships;
-      - only inspect the currently executing TradePerform order;
+      - inspect every active order layer for TradePerform;
       - only handle deliveries to a PLAYER-owned build storage;
       - when the ship is within 5 km, move only the ware in that trade deal;
       - move only complete trade deals; never make a partial remote delivery;
-      - cancel the completed TradePerform order so the ship does not keep waiting for a dock.
+      - cancel only the handled TradePerform order; preserve the player's queue.
 
       Intentionally NOT handled in v0.2:
       - NPC trading or payments;
@@ -37,9 +37,15 @@
           <set_value name="$Ship" exact="$Ships.{$i}"/>
 
           <do_if value="$Ship.exists and ($Ship != player.occupiedship) and ($Ship.orders.count gt 0)">
-            <set_value name="$Order" exact="$Ship.orders.{1}"/>
+            <!--
+              Docking and movement can occupy the first order layer while the
+              parent TradePerform holds the actual deal. Inspect the full active
+              order stack so queued ships are found before they dock.
+            -->
+            <do_all exact="$Ship.orders.count" counter="$OrderIndex">
+              <set_value name="$Order" exact="$Ship.orders.{$OrderIndex}"/>
 
-            <do_if value="$Order.exists and ($Order.id == 'TradePerform') and @$Order.$tradedeal.exists">
+              <do_if value="$Order.exists and ($Order.id == 'TradePerform') and @$Order.$tradedeal.exists">
               <set_value name="$Deal" exact="$Order.$tradedeal"/>
 
               <!--
@@ -60,19 +66,41 @@
               <do_if value="$Target and $Target.exists and $Target.isplayerowned">
                 <debug_to_file directory="'FastBuildStorageMVP'"
                                name="'fbs'"
-                               text="'[FBS] candidate: ship=%1, target=%2, distance=%3'.[$Ship.knownname, $Target.knownname, $Ship.distanceto.{$Target}]"
+                               text="'[FBS] candidate: ship=%1, target=%2, distance=%3, order-layer=%4'.[$Ship.knownname, $Target.knownname, $Ship.distanceto.{$Target}, $OrderIndex]"
                                output="true"
                                append="true"/>
 
                 <do_if value="$Ship.distanceto.{$Target} lt 5km">
+                  <!-- Record child layers without cancelling them. Their IDs are
+                       needed to release only the dock queue, not player orders. -->
+                  <do_all exact="($OrderIndex - 1)" counter="$ChildOrderIndex">
+                    <set_value name="$ChildOrder" exact="$Ship.orders.{$ChildOrderIndex}"/>
+                    <debug_to_file directory="'FastBuildStorageMVP'"
+                                   name="'fbs'"
+                                   text="'[FBS] child-order: ship=%1, layer=%2, id=%3'.[$Ship.knownname, $ChildOrderIndex, $ChildOrder.id]"
+                                   output="true"
+                                   append="true"/>
+                  </do_all>
+
                   <!-- A build storage owns its processor through its build module. -->
                   <set_value name="$BuildProcessor" exact="$Target.buildmodule.buildprocessor"/>
                   <set_value name="$Ware" exact="$Deal.ware"/>
 
-                  <do_if value="$BuildProcessor and $Ware and $Ship.cargo.{$Ware}.exists and $BuildProcessor.neededsequenceresources.list.indexof.{$Ware}">
+                  <!--
+                    Cargo and needed-sequence entries are keyed collections, not
+                    reliably objects with an .exists property. Read their counts
+                    directly; a zero count safely excludes a non-matching ware.
+                  -->
+                  <do_if value="$BuildProcessor and $Ware">
                     <set_value name="$OnShip" exact="$Ship.cargo.{$Ware}.count"/>
                     <set_value name="$Needed" exact="$BuildProcessor.neededsequenceresources.{$Ware}.count"/>
                     <set_value name="$DealAmount" exact="$Deal.amount"/>
+
+                    <debug_to_file directory="'FastBuildStorageMVP'"
+                                   name="'fbs'"
+                                   text="'[FBS] inspect: ship=%1, ware=%2, onship=%3, needed=%4, deal=%5'.[$Ship.knownname, $Ware.name, $OnShip, $Needed, $DealAmount]"
+                                   output="true"
+                                   append="true"/>
 
                     <!--
                       An incomplete deal cannot be safely completed by cancelling
@@ -90,9 +118,9 @@
                       <add_cargo object="$Target" ware="$Ware" exact="$DealAmount"/>
 
                       <!--
-                        This is still an order cancellation, not a vanilla
-                        trade-completed event. It is restricted to player-to-player
-                        transfers until the vanilla TradePerform cleanup is mapped.
+                        Do not cancel the whole order stack: it can include the
+                        player's queued future instructions. A safe release of the
+                        dock child requires identifying its exact vanilla order ID.
                       -->
                       <cancel_order order="$Order"/>
 
@@ -100,7 +128,7 @@
                                   chance="100"/>
                       <debug_to_file directory="'FastBuildStorageMVP'"
                                      name="'fbs'"
-                                     text="'[FBS] completed: ship=%1, ware=%2, amount=%3'.[$Ship.knownname, $Ware.name, $DealAmount]"
+                                     text="'[FBS] completed: ship=%1, ware=%2, amount=%3, cancelled-order-layer=%4'.[$Ship.knownname, $Ware.name, $DealAmount, $OrderIndex]"
                                      output="true"
                                      append="true"/>
                     </do_if>
@@ -114,7 +142,8 @@
                   </do_if>
                 </do_if>
               </do_if>
-            </do_if>
+              </do_if>
+            </do_all>
           </do_if>
         </do_all>
 

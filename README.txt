@@ -23,17 +23,18 @@ Current behaviour
 -----------------
 * Poll interval: 5 seconds.
 * Trigger radius: 5 km from build storage.
-* The radius trigger is deliberate: v0.2 does NOT check whether docks are busy
+* The radius trigger is deliberate: v0.7 does NOT check whether docks are busy
   or whether a queue exists.
 * Only player-owned ships.
 * Only player-owned build storages: NPC trades are ignored completely.
-* Only the CURRENT order, and only if its id is TradePerform.
+* Inspects every active order layer and handles TradePerform when found.
 * Only deliveries where the trade deal buyer/owner is a build storage.
 * Transfers only the ware from that trade deal.
 * Transfers only a complete deal: cargo on the ship and current construction
   need must each be at least the whole trade-deal amount. Partial deals are
   logged and left to vanilla.
-* Cancels that TradePerform order after the remote transfer.
+* Cancels only the handled TradePerform order after remote transfer. It does not
+  cancel the player's other queued orders or an unidentified vanilla dock child.
 * Does not touch the ship currently occupied by the player.
 
 Not implemented yet
@@ -41,8 +42,10 @@ Not implemented yet
 * NPC trading and payment handling.
 * Config UI / configurable range.
 * Queue-length / free-dock detection (intentionally not planned for this build).
+* Safe removal of the residual dock-queue child order. This needs the exact
+  vanilla order ID; cancelling the entire stack can remove the player's queue.
 * Compatibility handling for alternative trade-order implementations.
-* Explicit trade-completed event synthesis. The mod still cancels the order;
+* Explicit trade-completed event synthesis. The mod still cancels TradePerform;
   this is limited to player-to-player transfers until vanilla reservation cleanup
   can be verified from the game scripts.
 
@@ -76,9 +79,10 @@ With -scriptlogfiles, the mod also creates a concise trace at:
 
   <X4 user profile>/logs/FastBuildStorageMVP/fbs.txt
 
-The trace reports scan heartbeat, matching candidates, a pending transfer,
-completion, and skipped incomplete deals. It is intentionally verbose for
-testing; disable the debug_to_file nodes once the MVP is validated.
+The trace reports scan heartbeat, matching candidates, child order IDs, the
+actual cargo / need / deal counts, a pending transfer, completion, and skipped
+incomplete deals. It is intentionally verbose for testing; disable the
+debug_to_file nodes once the MVP is validated.
 
 If it does not work, send the lines around any [FBS] message and any script/XML
 errors mentioning FastBuildStorageMVP.
