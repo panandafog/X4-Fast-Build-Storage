@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FastBuildStorageMVP"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+    <!--
+      MVP behaviour:
+      - every 5 seconds scan player-owned ships;
+      - only inspect the currently executing TradePerform order;
+      - only handle SELL deliveries whose target/buyer is a build storage;
+      - when the ship is within 5 km, move only the ware in that trade deal;
+      - never move more than the build processor currently needs;
+      - cancel the completed TradePerform order so the ship does not keep waiting for a dock.
+
+      Intentionally NOT handled in v0.1:
+      - NPC sellers / payments;
+      - queued (non-current) orders;
+      - UI/settings;
+      - any delivery where the trade partner is not represented as class.buildstorage.
+    -->
+    <cue name="FBS_Loop">
+      <delay exact="5s"/>
+      <actions>
+        <find_ship_by_true_owner faction="faction.player"
+                                 space="player.galaxy"
+                                 name="$Ships"
+                                 multiple="true"/>
+
+        <do_all exact="$Ships.count" counter="$i">
+          <set_value name="$Ship" exact="$Ships.{$i}"/>
+
+          <do_if value="$Ship.exists and ($Ship != player.occupiedship) and ($Ship.orders.count gt 0)">
+            <set_value name="$Order" exact="$Ship.orders.{1}"/>
+
+            <do_if value="$Order.exists and ($Order.id == 'TradePerform') and @$Order.$tradedeal.exists">
+              <set_value name="$Deal" exact="$Order.$tradedeal"/>
+
+              <!-- A missing seller means the controlled ship is the seller in TradePerform. -->
+              <do_if value="not @$Deal.seller.exists">
+                <set_value name="$Target" exact="null"/>
+
+                <do_if value="@$Deal.buyer.isclass.buildstorage">
+                  <set_value name="$Target" exact="$Deal.buyer"/>
+                </do_if>
+                <do_elseif value="@$Deal.owner.isclass.buildstorage">
+                  <set_value name="$Target" exact="$Deal.owner"/>
+                </do_elseif>
+
+                <do_if value="$Target and $Target.exists and ($Ship.distanceto.{$Target} lt 5km)">
+                  <set_value name="$BuildProcessor" exact="$Target.buildprocessor"/>
+                  <set_value name="$Ware" exact="$Deal.ware"/>
+
+                  <do_if value="$BuildProcessor and $Ware and $Ship.cargo.{$Ware}.exists and $BuildProcessor.neededsequenceresources.list.indexof.{$Ware}">
+                    <set_value name="$OnShip" exact="$Ship.cargo.{$Ware}.count"/>
+                    <set_value name="$Needed" exact="$BuildProcessor.neededsequenceresources.{$Ware}.count"/>
+                    <set_value name="$DealAmount" exact="$Deal.amount"/>
+                    <set_value name="$Amount" exact="[$OnShip, $Needed, $DealAmount].min"/>
+
+                    <do_if value="$Amount gt 0">
+                      <remove_cargo object="$Ship" ware="$Ware" exact="$Amount"/>
+                      <add_cargo object="$Target" ware="$Ware" exact="$Amount"/>
+
+                      <debug_text text="'[FBS] Remote unload: %1 -> %2, %3 x %4'.[$Ship.knownname, $Target.knownname, $Amount, $Ware.name]"
+                                  chance="100"/>
+
+                      <!-- Release the vanilla trade reservation/order after our transfer. -->
+                      <cancel_order order="$Order"/>
+                    </do_if>
+                  </do_if>
+                </do_if>
+              </do_if>
+            </do_if>
+          </do_if>
+        </do_all>
+
+        <!-- Periodic loop. reset_cue takes effect after the current actions finish. -->
+        <reset_cue cue="this"/>
+      </actions>
+    </cue>
+  </cues>
+</mdscript>

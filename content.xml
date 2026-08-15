@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<content
+  id="panandafog_fast_build_storage_mvp"
+  name="Fast Build Storage MVP"
+  author="Panandafog"
+  version="1"
+  date="2026-08-15"
+  save="false"
+  sync="false"
+  description="Remote-unloads player-owned ships delivering construction wares to build storage.">
+  <dependency version="900"/>
+</content>
