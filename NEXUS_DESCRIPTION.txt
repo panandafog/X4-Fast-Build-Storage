@@ -1,0 +1,81 @@
+[size=4][b]Description[/b][/size]
+[size=3][color=#D4D4D8]
+Fast Build Storage is a quality-of-life mod for X4: Foundations that clears construction-storage docking bottlenecks.
+
+When one of your freighters is delivering construction materials to one of your station build storages, the mod can complete the delivery remotely once the ship is close to the storage. The cargo is transferred only when the construction project still needs the full contracted amount, then the delivery's active docking orders are released.
+
+This is aimed at the familiar situation where a large construction project has many L/XL freighters waiting around its build storage while only a small number of physical docks are available.
+
+The mod does not create wares, does not add money, and does not speed up the actual construction timer. It only skips the unnecessary final docking wait for eligible player-owned deliveries.
+
+[b]Source code and issue tracking:[/b] [url=https://github.com/panandafog/X4-Fast-Build-Storage]github.com/panandafog/X4-Fast-Build-Storage[/url]
+[/color][/size]
+
+[size=4][b]Installation instructions[/b][/size]
+[size=3][color=#D4D4D8]
+1. Download and extract the archive.
+2. Copy the [b]fast_build_storage[/b] folder into your X4 Foundations [b]extensions[/b] folder.
+3. Verify that the final path is:
+
+[code]&lt;X4 Foundations&gt;/extensions/fast_build_storage/content.xml[/code]
+
+4. Start X4 and enable [b]Fast Build Storage[/b] in the Extensions menu.
+5. Load your save and use normal trade/delivery orders for your freighters.
+
+Always make a backup save before adding, updating, or removing mods.
+
+[b]Updating from pre-1.0 versions:[/b] version 1.0 uses the clean extension ID [code]panandafog_fast_build_storage[/code]. X4 may therefore display it as a new extension when loading a save that used an older Fast Build Storage test build. Make a backup save first.
+[/color][/size]
+
+[size=4][b]Main features[/b][/size]
+[size=3][color=#D4D4D8]
+[list]
+[*]Checks player-owned ships every 5 seconds.
+[*]Handles deliveries from player-owned ships to player-owned station build storages.
+[*]Activates within 5 km of the target build storage.
+[*]Finds the underlying [code]TradePerform[/code] delivery even while vanilla docking orders such as [code]DockAt[/code] and [code]DockAndWait[/code] are active.
+[*]Transfers only the ware and amount assigned to that specific trade deal.
+[*]Requires the ship to carry the complete contracted amount and the construction project to still require the complete amount. Incomplete deliveries are left to vanilla X4 behaviour.
+[*]Releases only the matching active [code]DockAt[/code] / [code]DockAndWait[/code] orders and their parent [code]TradePerform[/code] order.
+[*]Preserves the ship's unrelated future queued orders.
+[*]Does not affect the ship currently controlled by the player.
+[/list]
+
+[b]Current scope and limitations[/b]
+
+[list]
+[*]Only player-owned freighters and player-owned build storages are supported.
+[*]NPC deliveries are intentionally ignored; the mod does not reproduce NPC trade payments.
+[*]The 5 km proximity trigger is used directly in version 1.0. It does not currently check whether a dock is free or count the length of the queue.
+[*]The mod is designed for X4 9.00.
+[/list]
+
+[b]Optional debugging[/b]
+
+If you need to diagnose a problem, launch X4 with:
+
+[code]-debug all -logfile fbs-debug.txt -scriptlogfiles[/code]
+
+The compact mod log is written to:
+
+[code]&lt;X4 user profile&gt;/logs/FastBuildStorage/fbs.txt[/code]
+
+A successful remote delivery contains lines similar to:
+
+[code][FBS] commit: ...
+[FBS] releasing dock child: ... id=DockAt ...
+[FBS] completed: ...[/code]
+[/color][/size]
+
+[size=4][b]Requirements[/b][/size]
+[size=3][color=#D4D4D8]
+[list]
+[*]X4: Foundations 9.00 or newer.
+[*]No other mods, libraries, scripts, or external tools are required.
+[/list]
+[/color][/size]
+
+[size=4][b]Shout outs[/b][/size]
+[size=3][color=#D4D4D8]
+Thanks to Egosoft for X4: Foundations and its modding support, and to the X4 modding community for the shared technical knowledge that makes small quality-of-life projects possible.
+[/color][/size]
