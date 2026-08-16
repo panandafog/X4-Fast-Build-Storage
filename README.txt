@@ -1,94 +1,66 @@
-Fast Build Storage v0.2
-===========================
+Fast Build Storage 1.0
+======================
 
-Purpose
--------
-Remote-unload PLAYER-OWNED ships that are currently executing a TradePerform
-delivery to a PLAYER-OWNED station build storage. This is a proof-of-concept
-intended to remove L/XL docking queues at construction storage.
+Fast Build Storage removes construction-storage docking bottlenecks for the
+player's freighters. When a player ship carrying construction materials reaches
+the target build storage, the mod delivers the contracted wares remotely and
+releases its active docking orders.
 
-Install
--------
-Copy the whole folder "fast_build_storage_mvp" into:
+Installation
+------------
+Extract the release ZIP into:
 
   <X4 Foundations>/extensions/
 
-Final path must be:
+The final path must be:
 
-  <X4 Foundations>/extensions/fast_build_storage_mvp/content.xml
+  <X4 Foundations>/extensions/fast_build_storage/content.xml
 
-Test on a backup save first.
+Enable **Fast Build Storage** in the Extensions menu, then load a save. Make a
+backup save before updating or uninstalling any mod.
 
 Current behaviour
 -----------------
-* Poll interval: 5 seconds.
-* Trigger radius: 5 km from build storage.
-* The radius trigger is deliberate: v0.7 does NOT check whether docks are busy
-  or whether a queue exists.
-* Only player-owned ships.
-* Only player-owned build storages: NPC trades are ignored completely.
-* Inspects every active order layer and handles TradePerform when found.
-* Only deliveries where the trade deal buyer/owner is a build storage.
-* Transfers only the ware from that trade deal.
-* Transfers only a complete deal: cargo on the ship and current construction
-  need must each be at least the whole trade-deal amount. Partial deals are
-  logged and left to vanilla.
-* Cancels only the handled TradePerform order after remote transfer. It does not
-  cancel the player's other queued orders or an unidentified vanilla dock child.
-* Does not touch the ship currently occupied by the player.
+* Scans player-owned ships every 5 seconds.
+* Handles player-owned ships delivering to player-owned build storages only.
+* Works within 5 km of the build storage.
+* Inspects every active order layer, so an active `DockAt` / `DockAndWait` does
+  not hide the parent `TradePerform` delivery.
+* Transfers only the contracted ware and only when the ship carries the full
+  trade-deal amount and construction still needs that full amount.
+* Releases only the matching `DockAt` / `DockAndWait` children and their
+  `TradePerform` parent. Other queued player orders are preserved.
+* Never handles NPC deliveries or payments.
+* Does not act on the ship currently occupied by the player.
 
-Not implemented yet
--------------------
-* NPC trading and payment handling.
-* Config UI / configurable range.
-* Queue-length / free-dock detection (intentionally not planned for this build).
-* Safe removal of the residual dock-queue child order. This needs the exact
-  vanilla order ID; cancelling the entire stack can remove the player's queue.
-* Compatibility handling for alternative trade-order implementations.
-* Explicit trade-completed event synthesis. The mod still cancels TradePerform;
-  this is limited to player-to-player transfers until vanilla reservation cleanup
-  can be verified from the game scripts.
+The 5 km trigger is deliberate. Version 1.0 does not check dock availability or
+queue length before remote unloading.
 
-How to test
------------
-1. Make a manual save.
-2. Pick one player L freighter carrying e.g. Hull Parts.
-3. Give it a normal delivery/sell order to the BUILD STORAGE of a station that
-   currently needs those wares.
-4. Watch the ship as it gets within 5 km of the build storage.
-5. Within ~5 seconds, expected result:
-   - cargo decreases on the ship;
-   - build storage receives the ware;
-   - the TradePerform order disappears/cancels;
-   - the ship should not wait for the build-storage dock.
-
-Debug
------
-Launch X4 with:
+Debugging
+---------
+For detailed diagnostics, launch X4 with:
 
   -debug all -logfile fbs-debug.txt -scriptlogfiles
 
-Search the resulting fbs-debug.txt for:
+The concise mod log is written to:
 
-  FastBuildStorageMVP
-  [FBS]
-  Property lookup failed
-  [=ERROR=]
+  <X4 user profile>/logs/FastBuildStorage/fbs.txt
 
-With -scriptlogfiles, the mod also creates a concise trace at:
+Successful delivery looks like:
 
-  <X4 user profile>/logs/FastBuildStorageMVP/fbs.txt
+  [FBS] commit: ...
+  [FBS] releasing dock child: ... id=DockAt ...
+  [FBS] completed: ...
 
-The trace reports scan heartbeat, matching candidates, child order IDs, the
-actual cargo / need / deal counts, a pending transfer, completion, and skipped
-incomplete deals. It is intentionally verbose for testing; disable the
-debug_to_file nodes once the MVP is validated.
+`skipped incomplete deal` is expected protection: the ship does not have the
+entire contracted cargo, or the construction no longer needs the full amount.
 
-If it does not work, send the lines around any [FBS] message and any script/XML
-errors mentioning FastBuildStorageMVP.
+Development
+-----------
+On macOS, build a clean installation archive with:
 
-IMPORTANT MVP WARNING
----------------------
-This has been checked for XML well-formedness, but NOT validated against your
-exact X4 9.0 md.xsd/common.xsd. If the game reports an MD schema/runtime error,
-that log is exactly what we need for the next iteration.
+  ./build_mod_zip.sh
+
+The script creates `dist/fast_build_storage_v1.0.zip` and includes only files
+needed by the mod. GitHub Actions runs the same script automatically for every
+push to `master` and uploads the ZIP as a workflow artifact.

@@ -1,0 +1,29 @@
+name: Build Fast Build Storage
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build mod archive
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build clean ZIP
+        run: ./build_mod_zip.sh
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-build-storage
+          path: dist/fast_build_storage_v*.zip
+          if-no-files-found: error

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <content
-  id="panandafog_fast_build_storage_mvp"
-  name="Fast Build Storage MVP"
+  id="panandafog_fast_build_storage"
+  name="Fast Build Storage"
   author="Panandafog"
-  version="7"
+  version="1.0"
   date="2026-08-15"
   save="false"
   sync="false"

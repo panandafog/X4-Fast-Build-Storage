@@ -1,13 +1,13 @@
-#!/bin/zsh
-# Builds a clean X4 extension archive for manual installation on macOS.
+#!/usr/bin/env bash
+# Builds a clean X4 extension archive for manual installation on macOS or Linux.
 set -euo pipefail
 
-SCRIPT_DIR=${0:A:h}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 MOD_NAME="fast_build_storage"
 VERSION=$(sed -n '/^[[:space:]]*version="/ { s/.*version="\([^"]*\)".*/\1/; p; q; }' "$SCRIPT_DIR/content.xml")
 
 if [[ -z "$VERSION" ]]; then
-  print -u2 "Could not read the mod version from content.xml."
+  printf '%s\n' "Could not read the mod version from content.xml." >&2
   exit 1
 fi
 
@@ -22,7 +22,7 @@ trap cleanup EXIT
 
 mkdir -p "$STAGING_DIR/$MOD_NAME/md" "$ARCHIVE_DIR"
 cp "$SCRIPT_DIR/content.xml" "$STAGING_DIR/$MOD_NAME/"
-cp "$SCRIPT_DIR/md/FastBuildStorageMVP.xml" "$STAGING_DIR/$MOD_NAME/md/"
+cp "$SCRIPT_DIR/md/FastBuildStorage.xml" "$STAGING_DIR/$MOD_NAME/md/"
 
 rm -f "$ARCHIVE_PATH"
 (
@@ -30,6 +30,6 @@ rm -f "$ARCHIVE_PATH"
   zip -qr "$ARCHIVE_PATH" "$MOD_NAME"
 )
 
-print "Created: $ARCHIVE_PATH"
-print "Archive contents:"
+printf 'Created: %s\n' "$ARCHIVE_PATH"
+printf '%s\n' "Archive contents:"
 unzip -l "$ARCHIVE_PATH"

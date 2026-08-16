@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<mdscript name="FastBuildStorageMVP"
+<mdscript name="FastBuildStorage"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="md.xsd">
   <cues>
     <!--
-      MVP behaviour:
+      Release behaviour:
       - every 5 seconds scan player-owned ships;
       - inspect every active order layer for TradePerform;
       - only handle deliveries to a PLAYER-owned build storage;
@@ -12,7 +12,7 @@
       - move only complete trade deals; never make a partial remote delivery;
       - cancel only the handled TradePerform order; preserve the player's queue.
 
-      Intentionally NOT handled in v0.2:
+      Intentionally not handled:
       - NPC trading or payments;
       - queued (non-current) orders;
       - UI/settings;
@@ -27,7 +27,7 @@
                                  multiple="true"/>
 
         <!-- Test-only heartbeat. Requires -scriptlogfiles; remove or disable after validation. -->
-        <debug_to_file directory="'FastBuildStorageMVP'"
+        <debug_to_file directory="'FastBuildStorage'"
                        name="'fbs'"
                        text="'[FBS] scan: player ships=%1'.[$Ships.count]"
                        output="true"
@@ -62,9 +62,9 @@
                 <set_value name="$Target" exact="$Deal.owner"/>
               </do_elseif>
 
-              <!-- Never complete NPC trades: this MVP does not reproduce payment. -->
+              <!-- Never complete NPC trades: this mod does not reproduce payment. -->
               <do_if value="$Target and $Target.exists and $Target.isplayerowned">
-                <debug_to_file directory="'FastBuildStorageMVP'"
+                <debug_to_file directory="'FastBuildStorage'"
                                name="'fbs'"
                                text="'[FBS] candidate: ship=%1, target=%2, distance=%3, order-layer=%4'.[$Ship.knownname, $Target.knownname, $Ship.distanceto.{$Target}, $OrderIndex]"
                                output="true"
@@ -75,7 +75,7 @@
                        needed to release only the dock queue, not player orders. -->
                   <do_all exact="($OrderIndex - 1)" counter="$ChildOrderIndex">
                     <set_value name="$ChildOrder" exact="$Ship.orders.{$ChildOrderIndex}"/>
-                    <debug_to_file directory="'FastBuildStorageMVP'"
+                    <debug_to_file directory="'FastBuildStorage'"
                                    name="'fbs'"
                                    text="'[FBS] child-order: ship=%1, layer=%2, id=%3'.[$Ship.knownname, $ChildOrderIndex, $ChildOrder.id]"
                                    output="true"
@@ -96,7 +96,7 @@
                     <set_value name="$Needed" exact="$BuildProcessor.neededsequenceresources.{$Ware}.count"/>
                     <set_value name="$DealAmount" exact="$Deal.amount"/>
 
-                    <debug_to_file directory="'FastBuildStorageMVP'"
+                    <debug_to_file directory="'FastBuildStorage'"
                                    name="'fbs'"
                                    text="'[FBS] inspect: ship=%1, ware=%2, onship=%3, needed=%4, deal=%5'.[$Ship.knownname, $Ware.name, $OnShip, $Needed, $DealAmount]"
                                    output="true"
@@ -108,7 +108,7 @@
                       remainder of the contracted cargo on the ship.
                     -->
                     <do_if value="$DealAmount gt 0 and $OnShip ge $DealAmount and $Needed ge $DealAmount">
-                      <debug_to_file directory="'FastBuildStorageMVP'"
+                      <debug_to_file directory="'FastBuildStorage'"
                                      name="'fbs'"
                                      text="'[FBS] commit: ship=%1, target=%2, ware=%3, amount=%4'.[$Ship.knownname, $Target.knownname, $Ware.name, $DealAmount]"
                                      output="true"
@@ -118,22 +118,39 @@
                       <add_cargo object="$Target" ware="$Ware" exact="$DealAmount"/>
 
                       <!--
-                        Do not cancel the whole order stack: it can include the
-                        player's queued future instructions. A safe release of the
-                        dock child requires identifying its exact vanilla order ID.
+                        Vanilla TradePerform creates a DockAndWait child while it
+                        waits for a berth; that child can in turn have a DockAt
+                        child. Cancelling the parent alone does not reliably stop
+                        an already-running dock wait. Remove only dock children
+                        that explicitly name THIS TradePerform as their caller.
+                        This deliberately excludes independent/future orders in
+                        the player's queue.
                       -->
+                      <do_all exact="($OrderIndex - 1)" counter="$ChildOrderIndex">
+                        <set_value name="$ChildOrder" exact="$Ship.orders.{$ChildOrderIndex}"/>
+                        <do_if value="$ChildOrder.exists and ($ChildOrder.id == 'DockAndWait' or $ChildOrder.id == 'DockAt') and (@$ChildOrder.$destination == $Target) and (@$ChildOrder.$callerid == $Order)">
+                          <debug_to_file directory="'FastBuildStorage'"
+                                         name="'fbs'"
+                                         text="'[FBS] releasing dock child: ship=%1, layer=%2, id=%3, parent-layer=%4'.[$Ship.knownname, $ChildOrderIndex, $ChildOrder.id, $OrderIndex]"
+                                         output="true"
+                                         append="true"/>
+                          <cancel_order order="$ChildOrder"/>
+                        </do_if>
+                      </do_all>
+
+                      <!-- The exact trade parent follows its dock children. -->
                       <cancel_order order="$Order"/>
 
                       <debug_text text="'[FBS] Remote unload: %1 -> %2, %3 x %4'.[$Ship.knownname, $Target.knownname, $DealAmount, $Ware.name]"
                                   chance="100"/>
-                      <debug_to_file directory="'FastBuildStorageMVP'"
+                      <debug_to_file directory="'FastBuildStorage'"
                                      name="'fbs'"
-                                     text="'[FBS] completed: ship=%1, ware=%2, amount=%3, cancelled-order-layer=%4'.[$Ship.knownname, $Ware.name, $DealAmount, $OrderIndex]"
+                                     text="'[FBS] completed: ship=%1, ware=%2, amount=%3, cancelled-trade-layer=%4'.[$Ship.knownname, $Ware.name, $DealAmount, $OrderIndex]"
                                      output="true"
                                      append="true"/>
                     </do_if>
                     <do_else>
-                      <debug_to_file directory="'FastBuildStorageMVP'"
+                      <debug_to_file directory="'FastBuildStorage'"
                                      name="'fbs'"
                                      text="'[FBS] skipped incomplete deal: ship=%1, ware=%2, onship=%3, needed=%4, deal=%5'.[$Ship.knownname, $Ware.name, $OnShip, $Needed, $DealAmount]"
                                      output="true"
