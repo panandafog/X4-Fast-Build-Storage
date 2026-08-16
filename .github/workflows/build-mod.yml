@@ -18,31 +18,43 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Read mod version
+        id: version
+        run: |
+          raw_version=$(sed -n '/^[[:space:]]*version="/ { s/.*version="\([^"]*\)".*/\1/; p; q; }' content.xml)
+          version=$(awk -v version="$raw_version" 'BEGIN { printf "%.2f", version / 100 }')
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build clean ZIP
         run: ./build_mod_zip.sh
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fast-build-storage
+          name: fast-build-storage-v${{ steps.version.outputs.value }}
           path: dist/fast_build_storage_v*.zip
           if-no-files-found: error
           retention-days: 7
 
-      - name: Publish latest GitHub release asset
+      - name: Publish versioned GitHub release asset
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.value }}
+          RELEASE_TITLE: Fast Build Storage v${{ steps.version.outputs.value }}
         run: |
-          git tag -f latest "$GITHUB_SHA"
-          git push origin refs/tags/latest --force
+          # Migrate from the previous floating `latest` release, if it exists.
+          gh release delete latest --yes --cleanup-tag >/dev/null 2>&1 || true
 
-          if gh release view latest >/dev/null 2>&1; then
-            gh release edit latest --title "Latest build" --prerelease
-            gh release view latest --json assets --jq '.assets[].name' | while IFS= read -r asset; do
-              gh release delete-asset latest "$asset" --yes
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --latest
+            gh release view "$TAG" --json assets --jq '.assets[].name' | while IFS= read -r asset; do
+              gh release delete-asset "$TAG" "$asset" --yes
             done
           else
-            gh release create latest --title "Latest build" --prerelease --notes "Automatically updated from the latest commit on master."
+            gh release create "$TAG" --title "$RELEASE_TITLE" --generate-notes --latest
           fi
 
-          gh release upload latest dist/fast_build_storage_v*.zip --clobber
+          gh release upload "$TAG" dist/fast_build_storage_v*.zip --clobber

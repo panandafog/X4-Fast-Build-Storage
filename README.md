@@ -6,7 +6,7 @@ materials reaches its target build storage, the mod delivers the contracted
 wares remotely and releases the active docking orders.
 
 - [Nexus Mods page](https://www.nexusmods.com/x4foundations/mods/2324)
-- [Download the latest build](https://github.com/panandafog/X4-Fast-Build-Storage/releases/download/latest/fast_build_storage_v1.00.zip)
+- [Download version 1.00](https://github.com/panandafog/X4-Fast-Build-Storage/releases/download/v1.00/fast_build_storage_v1.00.zip)
 - [All GitHub releases](https://github.com/panandafog/X4-Fast-Build-Storage/releases)
 
 ## Installation
@@ -81,4 +81,4 @@ The script creates `dist/fast_build_storage_v1.00.zip` and includes only the
 files needed by the mod.
 
 Every push to `master` builds the archive, uploads it to the workflow run, and
-updates the downloadable **latest** prerelease on GitHub.
+creates or updates the GitHub Release matching the version in `content.xml`.
