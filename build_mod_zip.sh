@@ -23,9 +23,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$STAGING_DIR/$MOD_NAME/md" "$ARCHIVE_DIR"
+mkdir -p "$STAGING_DIR/$MOD_NAME/md" "$STAGING_DIR/$MOD_NAME/t" "$ARCHIVE_DIR"
 cp "$SCRIPT_DIR/content.xml" "$STAGING_DIR/$MOD_NAME/"
 cp "$SCRIPT_DIR/md/FastBuildStorage.xml" "$STAGING_DIR/$MOD_NAME/md/"
+cp "$SCRIPT_DIR"/t/*.xml "$STAGING_DIR/$MOD_NAME/t/"
 
 rm -f "$ARCHIVE_PATH"
 (

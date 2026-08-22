@@ -5,35 +5,145 @@
   <cues>
     <!--
       Release behaviour:
-      - every 5 seconds scan player-owned ships;
+      - scan player-owned ships at the configured interval (5 seconds by default);
       - inspect every active order layer for TradePerform;
       - only handle deliveries to a PLAYER-owned build storage;
-      - when the ship is within 5 km, move only the ware in that trade deal;
+      - when the ship is within the configured radius (5 km by default), move only the ware in that trade deal;
       - move only complete trade deals; never make a partial remote delivery;
       - cancel only the handled TradePerform order; preserve the player's queue.
 
       Intentionally not handled:
       - NPC trading or payments;
       - queued (non-current) orders;
-      - UI/settings;
       - any delivery where the trade partner is not represented as class.buildstorage.
     -->
+
+    <!-- Runtime settings. Simple Menu Options immediately invokes the callback
+         with either its stored value or the declared default. These defaults
+         also make the delivery loop safe before that API finishes loading. -->
+    <cue name="Globals">
+      <actions>
+        <set_value name="$UnloadRadiusKm" exact="5"/>
+        <set_value name="$ScanIntervalSeconds" exact="5"/>
+        <!-- Zero means unlimited internally. The UI represents this as infinity. -->
+        <set_value name="$MaxDeliveriesPerCycle" exact="0"/>
+      </actions>
+    </cue>
+
+    <cue name="FBS_RegisterOptions" instantiate="true">
+      <conditions>
+        <event_cue_signalled cue="md.Simple_Menu_Options.Reloaded"/>
+      </conditions>
+      <actions>
+        <signal_cue_instantly
+          cue="md.Simple_Menu_Options.Register_Option"
+          param="table[
+            $category = {20260815, 1},
+            $id = 'panandafog_fbs_unload_radius_km',
+            $name = {20260815, 2},
+            $mouseover = {20260815, 3},
+            $default = 5,
+            $type = 'slidercell',
+            $args = table[
+              $min = 1,
+              $max = 50,
+              $minSelect = 1,
+              $maxSelect = 50,
+              $step = 1,
+              $suffix = ' km'
+            ],
+            $callback = FBS_OnOptionChanged
+          ]"/>
+
+        <signal_cue_instantly
+          cue="md.Simple_Menu_Options.Register_Option"
+          param="table[
+            $category = {20260815, 1},
+            $id = 'panandafog_fbs_scan_interval_seconds',
+            $name = {20260815, 4},
+            $mouseover = {20260815, 5},
+            $default = 5,
+            $type = 'slidercell',
+            $args = table[
+              $min = 1,
+              $max = 60,
+              $minSelect = 1,
+              $maxSelect = 60,
+              $step = 1,
+              $suffix = ' s'
+            ],
+            $callback = FBS_OnOptionChanged
+          ]"/>
+
+        <signal_cue_instantly
+          cue="md.Simple_Menu_Options.Register_Option"
+          param="table[
+            $category = {20260815, 1},
+            $id = 'panandafog_fbs_max_deliveries_per_cycle',
+            $name = {20260815, 6},
+            $mouseover = {20260815, 7},
+            $default = 100,
+            $type = 'slidercell',
+            $args = table[
+              $min = 1,
+              $max = 100,
+              $minSelect = 1,
+              $maxSelect = 100,
+              $step = 1,
+              $useInfiniteValue = true,
+              $infiniteValue = 100
+            ],
+            $callback = FBS_OnOptionChanged
+          ]"/>
+      </actions>
+    </cue>
+
+    <cue name="FBS_OnOptionChanged" instantiate="true">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <do_if value="event.param.$id == 'panandafog_fbs_unload_radius_km'">
+          <set_value name="Globals.$UnloadRadiusKm" exact="event.param.$value"/>
+        </do_if>
+        <do_elseif value="event.param.$id == 'panandafog_fbs_scan_interval_seconds'">
+          <set_value name="Globals.$ScanIntervalSeconds" exact="event.param.$value"/>
+        </do_elseif>
+        <do_elseif value="event.param.$id == 'panandafog_fbs_max_deliveries_per_cycle'">
+          <set_value name="Globals.$MaxDeliveriesPerCycle"
+                     exact="if (event.param.$value ge 100) then 0 else event.param.$value"/>
+        </do_elseif>
+
+        <debug_to_file directory="'FastBuildStorage'"
+                       name="'fbs'"
+                       text="'[FBS] setting: id=%1, value=%2, radius-km=%3, interval-seconds=%4, max-per-cycle=%5'.[event.param.$id, event.param.$value, Globals.$UnloadRadiusKm, Globals.$ScanIntervalSeconds, Globals.$MaxDeliveriesPerCycle]"
+                       output="true"
+                       append="true"/>
+      </actions>
+    </cue>
+
     <cue name="FBS_Loop">
-      <delay exact="5s"/>
+      <delay exact="Globals.$ScanIntervalSeconds * 1s"/>
       <actions>
         <find_ship_by_true_owner faction="faction.player"
                                  space="player.galaxy"
                                  name="$Ships"
                                  multiple="true"/>
 
-        <!-- Test-only heartbeat. Requires -scriptlogfiles; remove or disable after validation. -->
+        <set_value name="$CompletedThisCycle" exact="0"/>
+
+        <!-- Heartbeat and active settings. Requires -scriptlogfiles. -->
         <debug_to_file directory="'FastBuildStorage'"
                        name="'fbs'"
-                       text="'[FBS] scan: player ships=%1'.[$Ships.count]"
+                       text="'[FBS] scan: player-ships=%1, radius-km=%2, interval-seconds=%3, max-per-cycle=%4'.[$Ships.count, Globals.$UnloadRadiusKm, Globals.$ScanIntervalSeconds, Globals.$MaxDeliveriesPerCycle]"
                        output="true"
                        append="true"/>
 
         <do_all exact="$Ships.count" counter="$i">
+          <do_if value="(Globals.$MaxDeliveriesPerCycle gt 0) and ($CompletedThisCycle ge Globals.$MaxDeliveriesPerCycle)">
+            <break/>
+          </do_if>
+
           <set_value name="$Ship" exact="$Ships.{$i}"/>
 
           <do_if value="$Ship.exists and ($Ship != player.occupiedship) and ($Ship.orders.count gt 0)">
@@ -43,6 +153,10 @@
               order stack so queued ships are found before they dock.
             -->
             <do_all exact="$Ship.orders.count" counter="$OrderIndex">
+              <do_if value="(Globals.$MaxDeliveriesPerCycle gt 0) and ($CompletedThisCycle ge Globals.$MaxDeliveriesPerCycle)">
+                <break/>
+              </do_if>
+
               <set_value name="$Order" exact="$Ship.orders.{$OrderIndex}"/>
 
               <do_if value="$Order.exists and ($Order.id == 'TradePerform') and @$Order.$tradedeal.exists">
@@ -70,7 +184,8 @@
                                output="true"
                                append="true"/>
 
-                <do_if value="$Ship.distanceto.{$Target} lt 5km">
+                <!-- MD distance values are measured in metres. -->
+                <do_if value="$Ship.distanceto.{$Target} lt (Globals.$UnloadRadiusKm * 1000)">
                   <!-- Record child layers without cancelling them. Their IDs are
                        needed to release only the dock queue, not player orders. -->
                   <do_all exact="($OrderIndex - 1)" counter="$ChildOrderIndex">
@@ -116,6 +231,7 @@
 
                       <remove_cargo object="$Ship" ware="$Ware" exact="$DealAmount"/>
                       <add_cargo object="$Target" ware="$Ware" exact="$DealAmount"/>
+                      <set_value name="$CompletedThisCycle" operation="add"/>
 
                       <!--
                         Vanilla TradePerform creates a DockAndWait child while it
@@ -163,6 +279,12 @@
             </do_all>
           </do_if>
         </do_all>
+
+        <debug_to_file directory="'FastBuildStorage'"
+                       name="'fbs'"
+                       text="'[FBS] scan completed: deliveries=%1, limit=%2'.[$CompletedThisCycle, Globals.$MaxDeliveriesPerCycle]"
+                       output="true"
+                       append="true"/>
 
         <!-- Periodic loop. reset_cue takes effect after the current actions finish. -->
         <reset_cue cue="this"/>

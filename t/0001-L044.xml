@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<language id="44">
+  <page id="20260815" title="Fast Build Storage" descr="Fast Build Storage UI text">
+    <t id="1">Fast Build Storage</t>
+    <t id="2">Remote unload radius</t>
+    <t id="3">Distance from the build storage at which cargo may be transferred without docking.</t>
+    <t id="4">Scan interval</t>
+    <t id="5">Delay between checks of player-owned ships. A new value takes effect after the current wait finishes.</t>
+    <t id="6">Maximum unloads per scan</t>
+    <t id="7">Limits how many ships may be unloaded during one scan. Select ∞ for no limit.</t>
+  </page>
+</language>

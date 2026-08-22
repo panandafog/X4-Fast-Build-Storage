@@ -2,11 +2,12 @@
 <content
   id="panandafog_fast_build_storage"
   name="Fast Build Storage"
-  author="Panandafog"
-  version="100"
-  date="2026-08-15"
+  author="panandafog"
+  version="101"
+  date="2026-08-21"
   save="false"
   sync="false"
   description="Remote-unloads player-owned ships delivering construction wares to build storage.">
   <dependency version="900"/>
+  <dependency id="ws_2042901274" optional="false" name="Mod Support APIs"/>
 </content>

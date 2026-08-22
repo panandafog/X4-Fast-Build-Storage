@@ -8,7 +8,17 @@ This is aimed at the familiar situation where a large construction project has m
 
 The mod does not create wares, does not add money, and does not speed up the actual construction timer. It only skips the unnecessary final docking wait for eligible player-owned deliveries.
 
+Version 1.01 adds in-game settings for the remote-unload radius, scan interval, and maximum successful unloads per scan.
+
 [b]Source code and issue tracking:[/b] [url=https://github.com/panandafog/X4-Fast-Build-Storage]github.com/panandafog/X4-Fast-Build-Storage[/url]
+[/color][/size]
+
+[size=4][b]Requirements[/b][/size]
+[size=3][color=#D4D4D8]
+[list]
+[*]X4: Foundations 9.00 or newer.
+[*][url=https://www.nexusmods.com/x4foundations/mods/503]Mod Support APIs[/url] by SirNukes. It provides the in-game Extension Options menu used by this mod.
+[/list]
 [/color][/size]
 
 [size=4][b]Installation instructions[/b][/size]
@@ -19,20 +29,34 @@ The mod does not create wares, does not add money, and does not speed up the act
 
 [code]&lt;X4 Foundations&gt;/extensions/fast_build_storage/content.xml[/code]
 
-4. Start X4 and enable [b]Fast Build Storage[/b] in the Extensions menu.
-5. Load your save and use normal trade/delivery orders for your freighters.
+4. Install and enable [b]Mod Support APIs[/b] by SirNukes.
+5. Start X4 and enable [b]Fast Build Storage[/b] in the Extensions menu.
+6. Load your save and use normal trade/delivery orders for your freighters.
 
 Always make a backup save before adding, updating, or removing mods.
 
-[b]Updating from pre-1.0 versions:[/b] version 1.0 uses the clean extension ID [code]panandafog_fast_build_storage[/code]. X4 may therefore display it as a new extension when loading a save that used an older Fast Build Storage test build. Make a backup save first.
+[b]Updating from pre-1.0 versions:[/b] versions 1.00 and newer use the clean extension ID [code]panandafog_fast_build_storage[/code]. X4 may therefore display it as a new extension when loading a save that used an older Fast Build Storage test build. Make a backup save first.
+[/color][/size]
+
+[size=4][b]Settings[/b][/size]
+[size=3][color=#D4D4D8]
+After loading a save, open [b]Settings → Extension Options → Fast Build Storage[/b]. Mod Support APIs saves the selected values. Changes apply immediately, except that a changed scan interval takes effect after the current wait finishes.
+
+[list]
+[*][b]Remote unload radius:[/b] 1–50 km; default 5 km.
+[*][b]Scan interval:[/b] 1–60 seconds; default 5 seconds.
+[*][b]Maximum unloads per scan:[/b] 1–99 or unlimited ([b]∞[/b]); default unlimited.
+[/list]
+
+The limit counts successful remote unloads, not ships merely inspected. Ships left after reaching the limit are eligible again on the next scan.
 [/color][/size]
 
 [size=4][b]Main features[/b][/size]
 [size=3][color=#D4D4D8]
 [list]
-[*]Checks player-owned ships every 5 seconds.
+[*]Checks player-owned ships at the configured interval.
 [*]Handles deliveries from player-owned ships to player-owned station build storages.
-[*]Activates within 5 km of the target build storage.
+[*]Activates within the configured distance of the target build storage.
 [*]Finds the underlying [code]TradePerform[/code] delivery even while vanilla docking orders such as [code]DockAt[/code] and [code]DockAndWait[/code] are active.
 [*]Transfers only the ware and amount assigned to that specific trade deal.
 [*]Requires the ship to carry the complete contracted amount and the construction project to still require the complete amount. Incomplete deliveries are left to vanilla X4 behaviour.
@@ -46,7 +70,7 @@ Always make a backup save before adding, updating, or removing mods.
 [list]
 [*]Only player-owned freighters and player-owned build storages are supported.
 [*]NPC deliveries are intentionally ignored; the mod does not reproduce NPC trade payments.
-[*]The 5 km proximity trigger is used directly in version 1.0. It does not currently check whether a dock is free or count the length of the queue.
+[*]The default proximity trigger is 5 km. Version 1.01 does not check whether a dock is free or count the length of the queue.
 [*]The mod is designed for X4 9.00.
 [/list]
 
@@ -64,15 +88,8 @@ A successful remote delivery contains lines similar to:
 
 [code][FBS] commit: ...
 [FBS] releasing dock child: ... id=DockAt ...
-[FBS] completed: ...[/code]
-[/color][/size]
-
-[size=4][b]Requirements[/b][/size]
-[size=3][color=#D4D4D8]
-[list]
-[*]X4: Foundations 9.00 or newer.
-[*]No other mods, libraries, scripts, or external tools are required.
-[/list]
+[FBS] completed: ...
+[FBS] scan completed: deliveries=..., limit=...[/code]
 [/color][/size]
 
 [size=4][b]Shout outs[/b][/size]

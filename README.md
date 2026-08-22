@@ -6,8 +6,14 @@ materials reaches its target build storage, the mod delivers the contracted
 wares remotely and releases the active docking orders.
 
 - [Nexus Mods page](https://www.nexusmods.com/x4foundations/mods/2324)
-- [Download version 1.00](https://github.com/panandafog/X4-Fast-Build-Storage/releases/download/v1.00/fast_build_storage_v1.00.zip)
+- [Download version 1.01](https://github.com/panandafog/X4-Fast-Build-Storage/releases/download/v1.01/fast_build_storage_v1.01.zip)
 - [All GitHub releases](https://github.com/panandafog/X4-Fast-Build-Storage/releases)
+
+## Requirements
+
+- X4: Foundations 9.00 or newer.
+- [Mod Support APIs](https://www.nexusmods.com/x4foundations/mods/503)
+  by SirNukes. It provides the in-game Extension Options menu used by this mod.
 
 ## Installation
 
@@ -23,15 +29,29 @@ wares remotely and releases the active docking orders.
    <X4 Foundations>/extensions/fast_build_storage/content.xml
    ```
 
-3. Enable **Fast Build Storage** in X4's Extensions menu, then load a save.
+3. Install and enable **Mod Support APIs** by SirNukes.
+4. Enable **Fast Build Storage** in X4's Extensions menu, then load a save.
 
 Make a backup save before updating or uninstalling any mod.
 
+## Settings
+
+After loading a save, open **Settings → Extension Options → Fast Build
+Storage**. Changes are saved by Mod Support APIs and apply immediately, except
+that a changed scan interval takes effect after the current wait finishes.
+
+- **Remote unload radius:** 1–50 km; default 5 km.
+- **Scan interval:** 1–60 seconds; default 5 seconds.
+- **Maximum unloads per scan:** 1–99 or unlimited (`∞`); default unlimited.
+
+The per-scan limit counts successful remote unloads, not ships merely inspected.
+Ships left after reaching the limit are eligible again on the next scan.
+
 ## Features
 
-- Scans player-owned ships every 5 seconds.
+- Scans player-owned ships at the configured interval.
 - Handles player-owned ships delivering to player-owned build storages only.
-- Works within 5 km of the build storage.
+- Works within the configured distance of the build storage.
 - Finds the parent `TradePerform` delivery even while `DockAt` or `DockAndWait`
   is active.
 - Transfers only the contracted ware when the ship carries, and construction
@@ -41,8 +61,8 @@ Make a backup save before updating or uninstalling any mod.
 - Never handles NPC deliveries or payments.
 - Does not act on the ship currently occupied by the player.
 
-The 5 km trigger is deliberate. Version 1.0 does not check dock availability or
-queue length before remote unloading.
+The default trigger distance is 5 km. Version 1.01 does not check dock
+availability or queue length before remote unloading.
 
 ## Debugging
 
@@ -64,6 +84,7 @@ A successful delivery contains:
 [FBS] commit: ...
 [FBS] releasing dock child: ... id=DockAt ...
 [FBS] completed: ...
+[FBS] scan completed: deliveries=..., limit=...
 ```
 
 `skipped incomplete deal` is expected protection: the ship does not have the
@@ -77,7 +98,7 @@ Build a clean installation archive on macOS or Linux with:
 ./build_mod_zip.sh
 ```
 
-The script creates `dist/fast_build_storage_v1.00.zip` and includes only the
+The script creates `dist/fast_build_storage_v1.01.zip` and includes only the
 files needed by the mod.
 
 Every push to `master` builds the archive, uploads it to the workflow run, and
